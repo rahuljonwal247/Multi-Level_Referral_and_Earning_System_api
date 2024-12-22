@@ -2,9 +2,14 @@ const User = require("../models/user");
 const Purchase = require("../models/Purchase");
 const Earnings = require("../models/Earnings");
 const { sendEarningsUpdate } = require("../utils/socket");
-
+const { purchaseSchema } = require("../validation/purchaseValidation");
 const addPurchase = async (req, res, next) => {
   const { userId, amount } = req.body;
+
+  const { error } = purchaseSchema.validate(req.body, { abortEarly: false });
+  if (error) {
+    return res.status(400).json({ errors: error.details.map(err => err.message) });
+  }
 
   // Validate purchase amount
   if (amount < 1000) {

@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/user");
+const { registerSchema, loginSchema } = require("../validation/userValidation");
 
 // Generate JWT
 const generateToken = (id) => {
@@ -11,7 +12,11 @@ const generateToken = (id) => {
 // Register a new user
 const registerUser = async (req, res) => {
   const { name, email, password, referrerId } = req.body;
-
+// Validate input using Joi
+const { error } = registerSchema.validate(req.body, { abortEarly: false });
+if (error) {
+  return res.status(400).json({ errors: error.details.map(err => err.message) });
+}
   try {
     const userExists = await User.findOne({ email });
 
@@ -25,7 +30,7 @@ const registerUser = async (req, res) => {
      if (!referrer) {
        return res.status(404).json({ message: "Invalid referrer ID" });
      }
-     if (referrer.referrals.length >= 8) {
+     if (referrer.directReferrals.length >= 8) {
        return res.status(400).json({ message: "Referrer has reached the maximum limit of 8 referrals" });
      }
    }
@@ -57,6 +62,8 @@ const registerUser = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
 
 // Login user
 const loginUser = async (req, res) => {
