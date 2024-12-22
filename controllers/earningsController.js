@@ -1,93 +1,52 @@
-const Earnings = require("../models/Earnings");
-const User = require("../models/user");
+const User = require('../models/user');
+const Earnings = require('../models/Earnings');
 
 /**
- * Get Earnings for a Specific User
+ * Get Real-Time Earnings for a User
+ * @route GET /earnings/:userId
  */
-const getEarningsByUser = async (req, res, next) => {
-  const { userId } = req.params;
-
+const getEarningsReport = async (req, res, next) => {
   try {
-    const earnings = await Earnings.find({ user: userId }).sort({ date: -1 });
+    const { userId } = req.params;
 
-    if (!earnings || earnings.length === 0) {
-      return res.status(404).json({ message: "No earnings found for this user" });
+    // Validate userId (ensure it's a valid ObjectId)
+    if (!/^[0-9a-fA-F]{24}$/.test(userId)) {
+      return res.status(400).json({ message: "Invalid userId format" });
     }
 
-    res.status(200).json({ earnings });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * Get Total Earnings for a Specific User
- */
-const getTotalEarnings = async (req, res, next) => {
-  const { userId } = req.params;
-
-  try {
+    // Check if the user exists
     const user = await User.findById(userId);
-
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    res.status(200).json({ totalEarnings: user.earnings });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * Get Earnings Summary (Level-wise)
- */
-const getEarningsSummary = async (req, res, next) => {
-  const { userId } = req.params;
-
-  try {
-    const earnings = await Earnings.find({ user: userId });
-
-    const summary = earnings.reduce(
-      (acc, earning) => {
-        if (earning.source === "Level 1") {
-          acc.level1 += earning.amount;
-        } else if (earning.source === "Level 2") {
-          acc.level2 += earning.amount;
-        }
-        return acc;
+    // Fetch earnings for the user grouped by level
+    const earnings = await Earnings.aggregate([
+      { $match: { userId: user._id } },
+      {
+        $group: {
+          _id: "$level",
+          totalEarnings: { $sum: "$amount" },
+        },
       },
-      { level1: 0, level2: 0 }
-    );
+      { $sort: { _id: 1 } },
+    ]);
 
-    res.status(200).json({ summary });
+    // Format the response
+    const totalEarnings = earnings.reduce((sum, entry) => sum + entry.totalEarnings, 0);
+    const breakdown = earnings.map((entry) => ({
+      level: entry._id,
+      earnings: entry.totalEarnings,
+    }));
+
+    res.status(200).json({
+      totalEarnings,
+      breakdown,
+    });
   } catch (error) {
+    console.error("Error fetching earnings report:", error);
     next(error);
   }
 };
 
-/**
- * Delete Earnings (Admin-only or for Testing)
- */
-const deleteEarnings = async (req, res, next) => {
-  const { earningsId } = req.params;
-
-  try {
-    const deletedEarning = await Earnings.findByIdAndDelete(earningsId);
-
-    if (!deletedEarning) {
-      return res.status(404).json({ message: "Earning record not found" });
-    }
-
-    res.status(200).json({ message: "Earning record deleted successfully" });
-  } catch (error) {
-    next(error);
-  }
-};
-
-module.exports = {
-  getEarningsByUser,
-  getTotalEarnings,
-  getEarningsSummary,
-  deleteEarnings,
-};
+module.exports = { getEarningsReport };

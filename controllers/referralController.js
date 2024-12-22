@@ -68,7 +68,7 @@ const addPurchase = async (req, res, next) => {
 
     await purchase.save();
 
-    res.status(200).json({ message: "Purchase added successfully" });
+    res.status(200).json({ message: "Purchase added successfully" ,userId:userId});
   } catch (error) {
     console.error("Error adding purchase:", error);
     next(error);
