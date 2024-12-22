@@ -25,7 +25,7 @@ const registerUser = async (req, res) => {
      if (!referrer) {
        return res.status(404).json({ message: "Invalid referrer ID" });
      }
-     if (referrer.referrals.length >= 8) {
+     if (referrer.directReferrals.length >= 8) {
        return res.status(400).json({ message: "Referrer has reached the maximum limit of 8 referrals" });
      }
    }
